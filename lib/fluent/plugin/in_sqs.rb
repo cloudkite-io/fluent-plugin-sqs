@@ -11,7 +11,7 @@ module Fluent::Plugin
     config_param :aws_key_id, :string, default: nil, secret: true
     config_param :aws_sec_key, :string, default: nil, secret: true
     config_param :tag, :string
-    config_param :region, :string, default: 'ap-northeast-1'
+    config_param :region, :string, default: 'us-east-1'
     config_param :sqs_url, :string, default: nil
     config_param :receive_interval, :time, default: 0.1
     config_param :max_number_of_messages, :integer, default: 10
@@ -55,9 +55,7 @@ module Fluent::Plugin
         visibility_timeout: @visibility_timeout
       ).each do |message|
         record = parse_message(message)
-
         message.delete if @delete_message
-
         router.emit(@tag, Fluent::Engine.now, record)
       end
     rescue
@@ -68,7 +66,16 @@ module Fluent::Plugin
     private
 
     def parse_message(message)
-      JSON.parse(message.body)
+      begin
+        record = JSON.parse(message.body)
+        record.receipt_handle = message.receipt_handle.to_s
+        record.message_id = message.message_id.to_s
+        record.md5_of_body = message.md5_of_body.to_s
+        record.queue_url = message.queue_url.to_s
+        record.sender_id = message.attributes['SenderId'].to_s
+      rescue
+        log.error 'failed to parse sqs message body', error: $ERROR_INFO.to_s, error_class: $ERROR_INFO.class.to_s
+        log.warn_backtrace $ERROR_INFO.backtrace
     end
   end
 end
