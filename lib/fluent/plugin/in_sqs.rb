@@ -23,11 +23,11 @@ module Fluent::Plugin
     def configure(conf)
       super
 
-      Aws.config = {
+      Aws.config.update({
         access_key_id: @aws_key_id,
         secret_access_key: @aws_sec_key,
         region: @region
-      }
+      })
     end
 
     def start
@@ -55,8 +55,8 @@ module Fluent::Plugin
         visibility_timeout: @visibility_timeout
       ).each do |message|
         record = parse_message(message)
-        message.delete if @delete_message
         router.emit(@tag, Fluent::Engine.now, record)
+        message.delete if @delete_message
       end
     rescue
       log.error 'failed to emit or receive', error: $ERROR_INFO.to_s, error_class: $ERROR_INFO.class.to_s
@@ -68,11 +68,11 @@ module Fluent::Plugin
     def parse_message(message)
       begin
         record = JSON.parse(message.body)
-        record.receipt_handle = message.receipt_handle.to_s
-        record.message_id = message.message_id.to_s
-        record.md5_of_body = message.md5_of_body.to_s
-        record.queue_url = message.queue_url.to_s
-        record.sender_id = message.attributes['SenderId'].to_s
+        record["receipt_handle"] = message.receipt_handle.to_s
+        record["message_id"] = message.message_id.to_s
+        record["md5_of_body"] = message.md5_of_body.to_s
+        record["queue_url"] = message.queue_url.to_s
+        record["sender_id"] = message.attributes['SenderId'].to_s
       rescue
         log.error 'failed to parse sqs message body', error: $ERROR_INFO.to_s, error_class: $ERROR_INFO.class.to_s
         log.warn_backtrace $ERROR_INFO.backtrace
